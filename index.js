@@ -40,7 +40,7 @@ function getWelcomeResponse(callback) {
     const sessionAttributes = {};
     const cardTitle = 'Welcome';
     const speechOutput = 'Welcome to agile times. ' +
-        'Please add new timesheet by saying, add timesheet to Project name and category.';
+        'Please add new timesheet by saying, add timesheet to Project name and category. or Delete all timesheets by saying delete all timesheets';
     // If the user either does not reply to the welcome message or says something that is not
     // understood, they will be prompted again with this text.
     const repromptText = 'Please add new timesheet by saying, ' +
@@ -131,6 +131,95 @@ function createNewTimeSheet(projectName, categoryName) {
 
 }
 
+function deleteAllTimes(intent, session, callback) {
+    var client = require('graphql-client')({ url: 'https://api.graph.cool/simple/v1/cj7zgkmi02bw101475q9iewka' });
+    var ids = []
+    var jsonIds;
+    
+     let speechOutput = '';
+    let sessionAttributes = {};
+    const shouldEndSession = true;
+    let repromptText = null;
+
+    client.query(`
+         query allTimesheets {
+         allTimesheets {
+                id
+         }
+            
+    }`, function (req, res) {
+            if (res.status === 401) {
+                throw new Error('Not authorized');
+            }
+            
+        })
+        .then(function (body) {
+            console.log(body.data.allTimesheets);
+            
+            
+            jsonIds = body.data.allTimesheets;
+            console.log("type of json"+typeof jsonIds);
+            for(var i = 0; i < jsonIds.length; i++){
+                ids.push(jsonIds[i].id);
+                
+                
+            }
+            console.log(ids);
+           
+    deleteAllTimesheets(ids, intent, session, callback);
+            
+        })
+        .catch(function (err) {
+            console.log(err.message);
+        });
+        
+
+}
+
+function deleteAllTimesheets(ids, intent, session, callback){
+    var idsList = ids;
+    let speechOutput = '';
+    let sessionAttributes = {};
+    const shouldEndSession = true;
+    let repromptText = null;
+    var client = require('graphql-client')({ url: 'https://api.graph.cool/simple/v1/cj7zgkmi02bw101475q9iewka' });
+
+    for (var i = 0; i < ids.length; i++) { 
+        var variables = {
+        id: ids[i]
+   
+        };
+        client.query(`
+        mutation deleteTimesheet ($id: ID!) {
+            deleteTimesheet(id: $id) {
+                id
+            }
+        }`, variables, function (req, res) {
+            if (res.status === 401) {
+                throw new Error('Not authorized');
+            }
+            
+        })
+        .then(function (body) {
+            console.log(body);
+        })
+        .catch(function (err) {
+            console.log(err.message);
+        });
+    
+    }
+         speechOutput = "Deleted All Timesheets successfully";
+    // }
+    // else{
+    //     speechOutput = "Deletion failed";
+    // }
+   
+
+    callback(sessionAttributes,
+        buildSpeechletResponse(intent.name, speechOutput, repromptText, shouldEndSession));
+
+}
+
 // --------------- Events -----------------------
 
 /**
@@ -163,7 +252,11 @@ function onIntent(intentRequest, session, callback) {
     // Dispatch to your skill's intent handlers
     if (intentName === 'AddTimesheetIntent') {
         addTimesheet(intent, session, callback);
-    } else if (intentName === 'AMAZON.HelpIntent') {
+    } 
+    else if(intentName === 'DeleteTimesheetsIntent'){
+            deleteAllTimes(intent, session, callback);
+    }
+    else if (intentName === 'AMAZON.HelpIntent') {
         getWelcomeResponse(callback);
     } else if (intentName === 'AMAZON.StopIntent' || intentName === 'AMAZON.CancelIntent') {
         handleSessionEndRequest(callback);
